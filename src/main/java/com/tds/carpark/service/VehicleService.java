@@ -42,7 +42,7 @@ public class VehicleService {
     }
 
     public ParkingBill generateParkingBill(VehicleRegistration vehicleReg){
-        VehicleParkedDetails vehicle = vehicleRepository.findByRegistration(vehicleReg.vehicleReg())
+        VehicleParkedDetails vehicle = vehicleRepository.removeByRegistration(vehicleReg.vehicleReg())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Vehicle not found"));
 
         Instant timeOut = Instant.now();

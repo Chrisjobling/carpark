@@ -51,13 +51,29 @@ class VehicleRepositoryTest {
     }
 
     @Test
-    void removeByRegistrationShouldReturnEmptyWhenNotPresent() {
-       //TODO
+    void findByRegistrationShouldReturnEmptyWhenNotPresent() {
+        assertTrue(vehicleRepository.findByRegistration("UNKNOWN").isEmpty());
     }
 
     @Test
     void removeByRegistrationShouldRemoveVehicleAndReturnParkedVehicleDetailsWhenFound() {
-        //TODO
+        VehicleParkedDetails savedVehicle = new VehicleParkedDetails(
+                "ABCEFG", 1, Instant.now());
+
+        vehicleRepository.saveIfAbsent(savedVehicle);
+
+        assertEquals(Optional.of(savedVehicle), vehicleRepository.findByRegistration(savedVehicle.vehicleReg()));
+
+        assertEquals(Optional.of(savedVehicle), vehicleRepository.removeByRegistration(savedVehicle.vehicleReg()));
+
+        assertTrue(vehicleRepository.findByRegistration(savedVehicle.vehicleReg()).isEmpty());
     }
+
+    @Test
+    void removeByRegistrationShouldReturnEmptyVehicleDoesntExist() {
+        assertTrue(vehicleRepository.findByRegistration("UNKNOWN").isEmpty());
+    }
+
+
 
 }
