@@ -23,4 +23,8 @@ public class VehicleRepository {
     public Optional<VehicleParkedDetails> findByRegistration(String vehicleReg) {
         return Optional.ofNullable(parkedVehicles.get(vehicleReg));
     }
+
+    public Optional<VehicleParkedDetails> removeByRegistration(String vehicleReg) {
+        return Optional.ofNullable(parkedVehicles.remove(vehicleReg));
+    }
 }

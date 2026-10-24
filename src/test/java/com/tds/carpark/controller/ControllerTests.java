@@ -1,9 +1,10 @@
 package com.tds.carpark.controller;
 
 
-import com.tds.carpark.model.ParkingAvailabilityResponse;
+import com.tds.carpark.model.ParkingAvailability;
 import com.tds.carpark.model.VehicleDetails;
 import com.tds.carpark.model.VehicleParkedDetails;
+import com.tds.carpark.model.VehicleRegistration;
 import com.tds.carpark.service.VehicleService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -13,6 +14,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.client.RestTestClient;
 
 import java.time.Instant;
+import java.util.Map;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
@@ -30,7 +32,7 @@ class ControllerTests {
     @Test
     void shouldReturnParkingAvailability() {
         when(vehicleService.getSpaces())
-                .thenReturn(new ParkingAvailabilityResponse(50, 0));
+                .thenReturn(new ParkingAvailability(50, 0));
 
         restTestClient.get().uri("/parking")
                 .exchange()
@@ -42,7 +44,7 @@ class ControllerTests {
 
     @Test
     void shouldParkCar(){
-        when(vehicleService.parkVehicle(any())).thenReturn(new VehicleParkedDetails("VEHICLE_REG",
+        when(vehicleService.parkVehicle(any())).thenReturn(new VehicleParkedDetails("VEHICLE_REG", 1,
                 Instant.parse("2026-10-23T16:48:00Z")));
 
         restTestClient.post().uri("/parking").body(new VehicleDetails("VEHICLE_REG",1))
@@ -50,7 +52,36 @@ class ControllerTests {
                 .expectStatus().isOk()
                 .expectBody()
                 .jsonPath("$.vehicleReg").isEqualTo("VEHICLE_REG")
-                .jsonPath("$.timeIn").isEqualTo("2026-10-23T16:48:00Z");
+                .jsonPath("$.timeIn").isEqualTo("2026-10-23T16:48:00Z")
+                .jsonPath("$.vehicleType").doesNotExist();
 
+    }
+
+    @Test
+    void shouldRejectParkingWithInvalidVehicleType() {
+        restTestClient.post().uri("/parking").body(new VehicleDetails("VEHICLE_REG", 4))
+                .exchange()
+                .expectStatus().isBadRequest()
+                .expectBody()
+                .jsonPath("$.vehicleType").isEqualTo("vehicleType must be 1, 2 or 3");
+    }
+
+    @Test
+    void shouldRejectParkingWithMissingFields() {
+        restTestClient.post().uri("/parking").body(Map.of())
+                .exchange()
+                .expectStatus().isBadRequest()
+                .expectBody()
+                .jsonPath("$.vehicleReg").isEqualTo("vehicleReg is required")
+                .jsonPath("$.vehicleType").isEqualTo("vehicleType is required");
+    }
+
+    @Test
+    void shouldRejectBillWithBlankRegistration() {
+        restTestClient.post().uri("/parking/bill").body(new VehicleRegistration(" "))
+                .exchange()
+                .expectStatus().isBadRequest()
+                .expectBody()
+                .jsonPath("$.vehicleReg").isEqualTo("vehicleReg is required");
     }
 }
