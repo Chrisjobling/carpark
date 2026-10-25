@@ -44,22 +44,32 @@ class ControllerTests {
 
     @Test
     void shouldParkCar(){
-        when(vehicleService.parkVehicle(any())).thenReturn(new VehicleParkedDetails("VEHICLE_REG", 1,
+        when(vehicleService.parkVehicle(any())).thenReturn(new VehicleParkedDetails("TESTREG", 1,
                 Instant.parse("2026-10-23T16:48:00Z")));
 
-        restTestClient.post().uri("/parking").body(new VehicleDetails("VEHICLE_REG",1))
+        restTestClient.post().uri("/parking").body(new VehicleDetails("TESTREG",1))
                 .exchange()
                 .expectStatus().isOk()
                 .expectBody()
-                .jsonPath("$.vehicleReg").isEqualTo("VEHICLE_REG")
+                .jsonPath("$.vehicleReg").isEqualTo("TESTREG")
                 .jsonPath("$.timeIn").isEqualTo("2026-10-23T16:48:00Z")
                 .jsonPath("$.vehicleType").doesNotExist();
 
     }
 
     @Test
+    void shouldRejectParkingWithInvalidNumberPlate() {
+        restTestClient.post().uri("/parking").body(new VehicleDetails("TESTREGTOOLONG", 1))
+                .exchange()
+                .expectStatus().isBadRequest()
+                .expectBody()
+                .jsonPath("$.vehicleReg").isEqualTo("vehicleReg must be between 1 to 7 characters");
+    }
+
+
+    @Test
     void shouldRejectParkingWithInvalidVehicleType() {
-        restTestClient.post().uri("/parking").body(new VehicleDetails("VEHICLE_REG", 4))
+        restTestClient.post().uri("/parking").body(new VehicleDetails("TESTREG", 4))
                 .exchange()
                 .expectStatus().isBadRequest()
                 .expectBody()

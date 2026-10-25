@@ -10,14 +10,24 @@ import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.time.Clock;
 import java.time.Duration;
+import java.time.Instant;
+import java.time.ZoneOffset;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 class VehicleServiceTests {
 
+    private static final Instant ARRIVAL = Instant.parse("2026-10-24T10:00:00Z");
+
     private final VehicleRepository repository = new VehicleRepository();
-    private final VehicleService service = new VehicleService(repository, 50);
+    private final ParkingChargeCalculator calculator = new ParkingChargeCalculator();
+    private final VehicleService service = serviceAt(ARRIVAL, 50);
+
+    private VehicleService serviceAt(Instant now, int capacity) {
+        return new VehicleService(repository, capacity, calculator, Clock.fixed(now, ZoneOffset.UTC));
+    }
 
     @Test
     void reportsAllSpacesAvailableWhenEmpty() {
@@ -53,7 +63,7 @@ class VehicleServiceTests {
 
     @Test
     void rejectsParkingWhenCapacityIsReached() {
-        VehicleService singleSpaceService = new VehicleService(repository, 1);
+        VehicleService singleSpaceService = serviceAt(ARRIVAL, 1);
         singleSpaceService.parkVehicle(new VehicleDetails("AB12 CDE", 1));
 
         ResponseStatusException exception = assertThrows(ResponseStatusException.class,
@@ -68,26 +78,12 @@ class VehicleServiceTests {
 
     @Test
     void rejectsParkingWhenCapacityIsZero() {
-        VehicleService closedService = new VehicleService(repository, 0);
+        VehicleService closedService = serviceAt(ARRIVAL, 0);
 
         assertThrows(ResponseStatusException.class,
                 () -> closedService.parkVehicle(new VehicleDetails("AB12 CDE", 1)));
 
         assertEquals(0, repository.getVehicleCount());
-    }
-
-    @Test
-    void chargesPerMinuteByVehicleType() {
-        assertEquals(0.40, VehicleService.calculateVehicleCharge(Duration.ofMinutes(4), 1), 0.0001);
-        assertEquals(0.80, VehicleService.calculateVehicleCharge(Duration.ofMinutes(4), 2), 0.0001);
-        assertEquals(1.60, VehicleService.calculateVehicleCharge(Duration.ofMinutes(4), 3), 0.0001);
-    }
-
-    @Test
-    void addsOnePoundForEveryFiveMinutes() {
-        assertEquals(1.50, VehicleService.calculateVehicleCharge(Duration.ofMinutes(5), 1), 0.0001);
-        assertEquals(4.00, VehicleService.calculateVehicleCharge(Duration.ofMinutes(10), 2), 0.0001);
-        assertEquals(6.80, VehicleService.calculateVehicleCharge(Duration.ofMinutes(12), 3), 0.0001);
     }
 
     @Test
@@ -115,5 +111,17 @@ class VehicleServiceTests {
 
         assertEquals("AB12 CDE", bill.vehicleReg());
         assertEquals(0.0, bill.vehicleCharge(), 0.0001);
+    }
+
+    @Test
+    void billsVehicleForTimeParked() {
+        service.parkVehicle(new VehicleDetails("AB12 CDE", 3));
+        VehicleService later = serviceAt(ARRIVAL.plus(Duration.ofMinutes(12)), 50);
+
+        ParkingBill bill = later.generateParkingBill(new VehicleRegistration("AB12 CDE"));
+
+        assertEquals(6.80, bill.vehicleCharge(), 0.0001);
+        assertEquals(ARRIVAL, bill.timeIn());
+        assertEquals(ARRIVAL.plus(Duration.ofMinutes(12)), bill.timeOut());
     }
 }
